@@ -48,7 +48,7 @@ minix# cp /usr/lib/keymaps/spanish.map /etc/keymap
 
 Vamos a hacer esto en dos partes, en el sistema MINIX de la máquina virtual y en el repositorio como tal:
 
-En el sistema
+En el sistema:
 Como solo se dispone de una terminal, utilizaremos nano para modificar los archivos ya que lo considero más cómodo que vim. El mensaje de bienvenida que por defecto es el que aparece en el anexo 1, se encuentra en la ruta /etc/motd.
 
 Al ejecutar el comando ls -l /etc/motd podemos ver la siguiente salida:
@@ -79,7 +79,7 @@ minix# nano /etc/motd
 
 Se reinicia la máquina virtual escribiendo reboot en la terminal y una vez que inicie se verá el mensaje anterior, como bien se puede apreciar en el anexo 2.
 
-Para modificar en github
+En github:
 Esto obviamente no modifica el repositorio de github, para ello trabajaremos en el pc anfitrión y no en la máquina virtual utilizando vscode. La razón de esto es que vscode facilita el subir cambios a un repositorio ya que usando git desde la terminal de MINIX pide usuario y token. En el repositorio se cambiará el archivo etc/motd y se le aplicarán los cambios anteriormente mencionados.
 
 En caso de que se clone el repositorio en /usr/src, al hacer make build los archivo que están en el directorio /etc no se modificarán, por lo que se requiere copiarlo manualmente con:
@@ -90,6 +90,65 @@ minix# cp /usr/src/etc/motd /etc
 
 Como dato adicional, esto no va a quitar la parte del copyright, en esta ocasión voy a dejarlo. Si se deseara modificarlo vamos, en nuestro proyecto, a la dirección sys/conf/copyright y lo modificamos, en el sistema MINIX con el repositorio clonado en /usr/src vamos a /usr/src/sys/conf/copyright, lo modificamos, hacemos una recompilación del sistema y al reiniciar cambiará.
 
+---
+
+### 2.3 Depuración de un bug en pthread
+
+En la carpeta /root se escribió el programa y se compiló con el comando:
+
+``` plaintext
+minix# clang -o test_mutex test_mutex.c -lmthread
+```
+
+Usamos -lmthread ya que estamos usando hilos dentro de MINIX.
+
+Cuando se ejecuta el tester pasa lo siguiente, el programa se queda totalmente colgado desde la primera llamada a pthread_mutex_trylock. Ver anexo 3.
+
+El método pthread_mutex_trylock está en la dirección /usr/src/minix/lib/libmthread/pthread_compat.c, este archivo es una capa de compatibilidad que convierte o traduce los pthread (estándar de hilos para sistemas tipo UNIX) en mthread, sistema nativo y más ligero de hilos de MINIX. Esto permite que el API estándar de POSIX pueda funcionar con la implementación específica de MINIX. Funciona redirigiendo las llamadas al núcleo mthread. Para utilizar esta capa de compatibilidad directamente se debe comenzar el programa de C con:
+
+``` C
+#define _MTHREADIFY_PTHREADS
+#include <minix/mthreads.h>
+```
+
+Procedemos a ver qué es lo que está fallando, para eso escribimos:
+
+``` plaintext
+minix# nano /usr/src/minix/lib/libmthread/pthread_compat.c
+```
+
+Aquí vemos el primer problema que explica por que se queda colgado incluso con la primera llamada:
+
+``` C
+int pthread_mutex_trylock(pthread_mutex_t *mutex)
+{
+    if (PTHREAD_MUTEX_INITIALIZER == *mutex) {
+        mthread_mutex_init(mutex, NULL);
+    }
+
+    return pthread_mutex_trylock(mutex);
+}
+```
+
+Aquí tenemos una recursión infinita: este método crea el mutex si no existe, pero una vez que lo hace se llama a si mismo infinitamente en lugar de llamar al método mthread_mutex_trylock. Lo corregimos para que quede así:
+
+``` C
+int pthread_mutex_trylock(pthread_mutex_t *mutex)
+{
+    if (PTHREAD_MUTEX_INITIALIZER == *mutex) {
+        mthread_mutex_init(mutex, NULL);
+    }
+
+    return mthread_mutex_trylock(mutex);
+}
+```
+
+Para visulizar el cambio en formato diff ver anexo 4.
+
+Hacemos rebuild del sistema y analizamos qué se ha resuelto con esta modificación, para ello volvemos a ejecutar el tester y podemos ver que la primera llamada a pthread_mutex_trylock devuelve 0, la segunda devuelve 11 que es el código que tiene /usr/include/sys/errno.h para EDEADLK, además las llamadas a pthread_mutex_unlock y pthread_mutex_destoy devuelven 0 cada una (ver anexo 5). Esta era la salida esperada tras la corrección, por lo que el bug queda solucionado.
+
+En github este archivo se encuentra en minix/lib/libmthread/pthread_compat.c.
+
 ## Anexos
 
 ![Anexo 1](img/20260406_18h26m07s_grim.png)
@@ -99,6 +158,25 @@ Como dato adicional, esto no va a quitar la parte del copyright, en esta ocasió
 ![Anexo 2](img/20260407_12h02m36s_grim.png)
 
 **Anexo 2:** Mensaje de bienvenida de MINIX (modificado)
+
+![Anexo 3](img/20260411_15h49m45s_grim.png)
+**Anexo 3:** Salida del programa de prueba antes de la corrección
+
+```diff
+ int pthread_mutex_trylock(pthread_mutex_t *mutex)
+ {
+        if (PTHREAD_MUTEX_INITIALIZER == *mutex) {
+                mthread_mutex_init(mutex, NULL);
+        }
+-       return pthread_mutex_trylock(mutex);
++       return mthread_mutex_trylock(mutex);
+ }
+```
+
+**Anexo 4:** Corrección del bug de pthread en formato diff.
+
+![Anexo 5](img/20260411_15h05m43s_grim.png)
+**Anexo 5:** Salida del programa de prueba tras la corrección
 
 ## Referencias
 
