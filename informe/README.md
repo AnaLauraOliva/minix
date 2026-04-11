@@ -102,8 +102,8 @@ Como dato adicional, esto no va a quitar la parte del copyright, en esta ocasió
 
 ## Referencias
 
-[^1]: [https://wiki.archlinux.org/title/VirtualBox_(Espa%C3%Bol)]
+[^1]: [https://wiki.archlinux.org/title/VirtualBox_(Español)]
 
-[^2]: [https://wiki.minix3.org/docu.php?id=usersguide:hardwarerequirements]
+[^2]: [https://wiki.minix3.org/doku.php?id=usersguide:hardwarerequirements]
 
-[^3]: [https://wiki.minix3.org/docu.php?id=usersguide:doinginstallation#runningsetup]
+[^3]: [https://wiki.minix3.org/doku.php?id=usersguide:doinginstallation#runningsetup]
