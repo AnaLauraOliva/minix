@@ -80,7 +80,7 @@ minix# nano /etc/motd
 Se reinicia la máquina virtual escribiendo reboot en la terminal y una vez que inicie se verá el mensaje anterior, como bien se puede apreciar en el anexo 2.
 
 En github:
-Esto obviamente no modifica el repositorio de github, para ello trabajaremos en el pc anfitrión y no en la máquina virtual utilizando vscode. La razón de esto es que vscode facilita el subir cambios a un repositorio ya que usando git desde la terminal de MINIX pide usuario y token. En el repositorio se cambiará el archivo etc/motd y se le aplicarán los cambios anteriormente mencionados.
+Esto obviamente no modifica el repositorio de github, para ello trabajaremos en el pc anfitrión y no en la máquina virtual utilizando vscode. La razón de esto es que vscode facilita el subir cambios a un repositorio ya que usando git desde la terminal de MINIX pide usuario y token. En el repositorio se cambiará el archivo <https://github.com/AnaLauraOliva/minix/tree/master/etc/motd> y se le aplicarán los cambios anteriormente mencionados.
 
 En caso de que se clone el repositorio en /usr/src, al hacer make build los archivo que están en el directorio /etc no se modificarán, por lo que se requiere copiarlo manualmente con:
 
@@ -88,13 +88,17 @@ En caso de que se clone el repositorio en /usr/src, al hacer make build los arch
 minix# cp /usr/src/etc/motd /etc
 ```
 
-Como dato adicional, esto no va a quitar la parte del copyright, en esta ocasión voy a dejarlo. Si se deseara modificarlo vamos, en nuestro proyecto, a la dirección sys/conf/copyright y lo modificamos, en el sistema MINIX con el repositorio clonado en /usr/src vamos a /usr/src/sys/conf/copyright, lo modificamos, hacemos una recompilación del sistema y al reiniciar cambiará.
+Como dato adicional, esto no va a quitar la parte del copyright, en esta ocasión voy a dejarlo. Si se deseara modificarlo vamos, en nuestro proyecto, a la dirección <https://github.com/AnaLauraOliva/minix/tree/master/sys/conf/copyright> y lo modificamos, en el sistema MINIX con el repositorio clonado en /usr/src vamos a /usr/src/sys/conf/copyright, lo modificamos, hacemos una recompilación del sistema y al reiniciar cambiará.
 
 ---
 
 ### 2.3 Depuración de un bug en pthread
 
-En la carpeta /root se escribió el programa y se compiló con el comando:
+En la carpeta /root se escribió el programa siguiente:
+
+```C
+
+```
 
 ``` plaintext
 minix# clang -o test_mutex test_mutex.c -lmthread
@@ -147,7 +151,7 @@ Para visulizar el cambio en formato diff ver anexo 4.
 
 Hacemos rebuild del sistema y analizamos qué se ha resuelto con esta modificación, para ello volvemos a ejecutar el tester y podemos ver que la primera llamada a pthread_mutex_trylock devuelve 0, la segunda devuelve 11 que es el código que tiene /usr/include/sys/errno.h para EDEADLK, además las llamadas a pthread_mutex_unlock y pthread_mutex_destoy devuelven 0 cada una (ver anexo 5). Esta era la salida esperada tras la corrección, por lo que el bug queda solucionado.
 
-En github este archivo se encuentra en minix/lib/libmthread/pthread_compat.c.
+En github este archivo se encuentra en <https://github.com/AnaLauraOliva/minix/tree/master/minix/lib/libmthread/pthread_compat.c>.
 
 ## Anexos
 
