@@ -127,6 +127,6 @@ int main(int argc, char **argv)
     const char *Path = (argc == 1) ? "." : argv[1];
     counter_t counter = {0,0,0};
     int out = walk(Path, Path, 0,&counter);
-    printf("%zu directories    %zu files    %zu links", counter.dirs,counter.files,counter.links);
+    printf("%zu directories    %zu files    %zu links\n", counter.dirs,counter.files,counter.links);
     return out ? EXIT_FAILURE : EXIT_SUCCESS;
 }

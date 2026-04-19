@@ -238,9 +238,9 @@ static int walk(const char *path, const char *name, int depth, counter_t *counte
 
 Esta función recibe sus argumento iniciales de la función main donde path y el name son el argumento que se le pasó al comando, counter es una referencia a la instancia del struct y depth es 0.
 
-Los anexos del 6 al 9 muestran el funcionamiento del comando.
+En los anexos del 6 al 10 puede apreciarse la comparación entre la salida del tree recién implementado en MINIX3 y en Arch linux con los siguientes casos: directorio actual, ruta absoluta, ruta relativa, manejo de permisos y de directorios inexistentes.
 
-El comando tree recién implementado y el de Linux solo se diferencian en aspectos estéticos(colores y la indentación) y en que nuestro comando muestra archivos y directorios ocultos sin necesidad del flag -a como se puede apreciar en el anexo 10.
+El comando tree recién implementado y el de Linux solo se diferencian en aspectos estéticos(colores y la indentación) y en que nuestro comando muestra archivos y directorios ocultos sin necesidad del flag -a como se puede apreciar en las imagenes antes mencionadas.
 
 ## Anexos
 
@@ -270,6 +270,21 @@ El comando tree recién implementado y el de Linux solo se diferencian en aspect
 
 ![Anexo 5](img/20260411_15h05m43s_grim.png)
 **Anexo 5:** Salida del programa de prueba tras la corrección
+
+![Anexo 6](img/Tree%20actual.png)
+**Anexo 6:** Salida de tree en MINIX3/Arch linux con directorio actual
+
+![Anexo 7](img/Tree%20absoluta.png)
+**Anexo 7:** Salida de tree en MINIX3/Arch linux con ruta absoluta
+
+![Anexo 8](img/Tree%20relativa.png)
+**Anexo 8:** Salida de tree en MINIX3/Arch linux con ruta relativa
+
+![Anexo 9](img/Tree%20permisos.png)
+**Anexo 9:** Salida de tree en MINIX3/Arch linux con una carpeta sin permiso de lectura y otra sin permiso de ejecución
+
+![Anexo 10](img/Tree%20directorio%20no%20existe.png)
+**Anexo 10:** Salida de tree en MINIX3/Arch linux cuando el directorio solicitado no existe
 
 ## Referencias
 
