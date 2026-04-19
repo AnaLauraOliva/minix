@@ -153,6 +153,95 @@ Hacemos rebuild del sistema y analizamos qué se ha resuelto con esta modificaci
 
 En github este archivo se encuentra en <https://github.com/AnaLauraOliva/minix/tree/master/minix/lib/libmthread/pthread_compat.c>.
 
+### 2.4 Implementación del comando tree
+
+Para la implementación del comando tree de MINIX se utilizó recursión explícita ya que el código refleja directamente el problema: el comando tree pude desglosarse en dos casos: si es un archivo o un enlace simbólico lo imprime y sale, si, por el contrario, es un subdirectorio entra en él y hace lo mismo, lo cual es la definición exacta de una función recursiva. Además, la recursividad explícita aprovecha el call stack(la pila de llamadas del sistema).
+
+Se utilizaron las siguientes llamadas al sistema:
+
+* lstat: Llamada al sistema que se usa para determinar información sobre un archivo en función de su nombre. Recibe dos argumentos: un **const char \*path** que es la ruta del archivo que se  está consultando y un **struct stat \*buf** que es la estructura donde se almacenan los datos del archivo. La función retorna un valor negativo en caso de que ocurra algún fallo. Se utilizó esta función ya que cuando el nombre del archivo hace referencia a un enlace se devuelve la información sobre el enlace.
+* opendir: Función del sistema que abre un directorio y crea un flujo para leer su contenido. Recibe un argumento **const char \*dirname** que es la ruta del directorio a abrir. Retorna un puntero DIR\* o NULL en caso de error.
+* readdir: Función del sistema que lee la siguiente entrada del flujo abierto. Cada llamada avanza a la siguiente entrada (archivo o subdirectorio). Recibe un argumento **DIR \*dirp** el puntero que devolvió opendir. Retorna un puntero a estructura struct dirent \* con datos de la entrada, o NULL al llegar al final o si hay error
+* closedir: Función del sistema que cierra el flujo del directorio y libera los recursos asociados. Recibe un argumento **DIR \*dirp** que es puntero al flujo que se desea cerrar. Retorna 0 si se cierra correctamente y -1 en caso de error.
+
+Antes de imprimirse los nombres, la función print imprime 4*depth espacios, donde depth es un entero que recibe de la función recursiva. Esto da un aspecto más limpio a la lista de directorios.
+
+**¿Cómo se previenen los ciclos?**
+Este punto se responde con la función lstat y la macro S_ISLNK:
+La función lstat tiene casi el mismo funcionamiento que la función stat, la única diferencia radica en cuando el nombre del archivo hace referencia a un enlace. En este caso, lstat devuelve información sobre el enlace, mientras que stat devuelve información sobre el archivo en sí. Una vez que el **struct stat st** tiene la información del archivo que hace referencia al enlace y ya se imprimió su numbre, para evitar abrir el archivo con opendir, la función walk usa **S_ISLNK** y le pasa st.st_mode para saber si es una referencia, en caso positivo retorna 0 (sale de esa llamada recursiva). De esta forma no se abren las referencias y se evita entrar en un ciclo.
+
+La parte más importante del código es la función walk:
+
+``` C
+//counter_t es un struct en el tree.c que es el que permite llevar el conteo de directorios,
+//archivos y enlaces del directorio
+static int walk(const char *path, const char *name, int depth, counter_t *counter)
+{
+    struct stat st;
+    DIR *dp;
+    struct dirent *de;
+    if (lstat(path, &st))
+    {
+        fprintf(stderr, "Error on path %s. No: %s", path, errno);
+        return 1;
+    }
+    if (print(path, name, depth) != 0)
+        return 1;
+    //estas primeras líneas lo que hacen es rellenar st e imprimir el nombre del archivo o directorio actual
+    //print es la función encargada de imprimir el nombre y la indentación
+    if (S_ISDIR(st.st_mode))
+        counter->dirs++;
+    else if (S_ISLNK(st.st_mode))
+        counter->links++;
+    else
+        counter->files++;
+    //Esto es para aumentar la variable del counter que corresponda, se usa un puntero para que el valor original también se modifique
+    if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode))
+    {
+        return 0;
+    }
+    //Esto es lo que evita que se entre en un bucle o que se intente abrir un archivo
+
+    //Las lineas siguientes contienen el proceso recursivo: se abre el directorio y se guarda en dp y luego se llama a walk en cada uno de los elementos que encuentre readdir en dp
+    dp = opendir(path);
+    if (dp == NULL)
+    {
+        fprintf(stderr, "Error: Cannot open this directory. Path: %s", path);
+        return 1;
+    }
+    int error = 0;
+
+    while ((de = readdir(dp)) != NULL)
+    {
+        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+            continue;
+        char new_path[PATH_MAX]; //esta variable contiene el nuevo directorio
+        int n;
+        n = snprintf(new_path, sizeof(new_path), "%s/%s", path, de->d_name); // Copiar el nuevo path en la variable
+        if (n < 0 || (size_t)n >= sizeof(new_path))
+        {
+            fprintf(stderr, "%s/%s: path too long\n", path, de->d_name);
+            error = 1;
+            continue;
+        }
+        if (walk(new_path, de->d_name, depth + 1, counter) != 0)//Llamado recursivo
+            error = 1;
+    }
+    if (closedir(dp) != 0)//Se cierra el directorio
+    {
+        fprintf(stderr, "Error: Cannot close this directory. Path:%s", path);
+        error = 1;
+    }
+    return error;
+}
+```
+
+Esta función recibe sus argumento iniciales de la función main donde path y el name son el argumento que se le pasó al comando, counter es una referencia a la instancia del struct y depth es 0.
+
+Los anexos del 6 al 9 muestran el funcionamiento del comando.
+
+El comando tree recién implementado y el de Linux solo se diferencian en aspectos estéticos(colores y la indentación) y en que nuestro comando muestra archivos y directorios ocultos sin necesidad del flag -a como se puede apreciar en el anexo 10.
+
 ## Anexos
 
 ![Anexo 1](img/20260406_18h26m07s_grim.png)
