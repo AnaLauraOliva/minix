@@ -34,6 +34,8 @@ EXTERN struct schedproc {
 								process allowed
 								to run on */
 	unsigned full_quantums;  /*Total de quantums completos consumidos en la ventana actual*/
+	unsigned starve_counter; /*Cuantos balance_queues se mantuvo en la peor prioridad*/
+	/*Esto es para evitar inanicion*/
 } schedproc[NR_PROCS];
 
 /* Flag values */

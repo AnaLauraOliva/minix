@@ -17,7 +17,7 @@ static unsigned balance_timeout;
 
 #define BALANCE_TIMEOUT 10	/* how often to balance queues in seconds */
 #define PENALTY_THRESHOLD 3 /*Total de quantums agotados en una misma ventana antes de penalizar*/
-
+#define STARVE_THRESHOLD 5	/* how often to set max priority on worst priority processes*/
 static int schedule_process(struct schedproc *rmp, unsigned flags);
 
 #define SCHEDULE_CHANGE_PRIO 0x1
@@ -144,6 +144,7 @@ int do_stop_scheduling(message *m_ptr)
 	cpu_proc[rmp->cpu]--;
 #endif
 	rmp->full_quantums = 0;
+	rmp->starve_counter = 0;
 	rmp->flags = 0; /*&= ~IN_USE;*/
 
 	return OK;
@@ -177,6 +178,7 @@ int do_start_scheduling(message *m_ptr)
 	rmp->parent = m_ptr->m_lsys_sched_scheduling_start.parent;
 	rmp->max_priority = m_ptr->m_lsys_sched_scheduling_start.maxprio;
 	rmp->full_quantums = 0;
+	rmp->starve_counter = 0;
 	if (rmp->max_priority >= NR_SCHED_QUEUES)
 	{
 		return EINVAL;
@@ -306,6 +308,7 @@ int do_nice(message *m_ptr)
 	/* Update the proc entry and reschedule the process */
 	rmp->max_priority = rmp->priority = new_q;
 	rmp->full_quantums = 0;
+	rmp->starve_counter = 0;
 	if ((rv = schedule_process_local(rmp)) != OK)
 	{
 		/* Something went wrong when rescheduling the process, roll
@@ -394,6 +397,16 @@ void balance_queues(void)
 			{
 				rmp->priority -= 1; /* increase priority */
 				schedule_process_local(rmp);
+			}
+			else if (rmp->priority > rmp->max_priority && rmp->full_quantums > 0)
+			{
+				rmp->starve_counter++;
+				if (rmp->starve_counter > STARVE_THRESHOLD)
+				{
+					rmp->priority = rmp->max_priority;
+					rmp->starve_counter = 0;
+					schedule_process_local(rmp);
+				}
 			}
 			rmp->full_quantums = 0;
 		}
