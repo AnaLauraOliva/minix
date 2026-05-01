@@ -15,7 +15,8 @@
 
 static unsigned balance_timeout;
 
-#define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
+#define BALANCE_TIMEOUT	10 /* how often to balance queues in seconds */
+#define PENALTY_THRESHOLE 3 /*Total de quantums agotados en una misma ventana antes de penalizar*/
 
 static int schedule_process(struct schedproc * rmp, unsigned flags);
 
@@ -83,7 +84,10 @@ static void pick_cpu(struct schedproc * proc)
 /*===========================================================================*
  *				do_noquantum				     *
  *===========================================================================*/
-
+/*Se seguira la siguiente estrategia: se aumenta el total de quantums consumidos
+ *en una misma ventana, si paso el maximo permitido se decrementa la prioridad
+ *de ser posible y se reinicia el contador
+ */
 int do_noquantum(message *m_ptr)
 {
 	register struct schedproc *rmp;
@@ -96,8 +100,11 @@ int do_noquantum(message *m_ptr)
 	}
 
 	rmp = &schedproc[proc_nr_n];
-	if (rmp->priority < MIN_USER_Q) {
+	rmp->full_quantums++;
+	if (rmp->full_quantums>=PENALTY_THRESHOLE&&rmp->priority < MIN_USER_Q) 
+	{
 		rmp->priority += 1; /* lower priority */
+		rmp->full_quantums=0;
 	}
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
@@ -129,6 +136,7 @@ int do_stop_scheduling(message *m_ptr)
 #ifdef CONFIG_SMP
 	cpu_proc[rmp->cpu]--;
 #endif
+	rmp->full_quantums=0;
 	rmp->flags = 0; /*&= ~IN_USE;*/
 
 	return OK;
@@ -161,6 +169,7 @@ int do_start_scheduling(message *m_ptr)
 	rmp->endpoint     = m_ptr->m_lsys_sched_scheduling_start.endpoint;
 	rmp->parent       = m_ptr->m_lsys_sched_scheduling_start.parent;
 	rmp->max_priority = m_ptr->m_lsys_sched_scheduling_start.maxprio;
+	rmp->full_quantums = 0;
 	if (rmp->max_priority >= NR_SCHED_QUEUES) {
 		return EINVAL;
 	}
@@ -280,7 +289,7 @@ int do_nice(message *m_ptr)
 
 	/* Update the proc entry and reschedule the process */
 	rmp->max_priority = rmp->priority = new_q;
-
+	rmp->full_quantums = 0;
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		/* Something went wrong when rescheduling the process, roll
 		 * back the changes to proc struct */
@@ -350,6 +359,11 @@ void init_scheduling(void)
  * quantum. This function will find all proccesses that have been bumped down,
  * and pulls them back up. This default policy will soon be changed.
  */
+/* El arreglado: se llama cada N ticks para reequilibrar las colas. Los procesos
+ * que consumieron quantums enteros durante la ultima ventana se tratan como CPU-bound
+ * y mantienen cualquier penalizacion que obtuvieron. Los procesos que no consumen
+ * quantums completos se asume que cedieron CPU o se bloquearon, asi que ganan un nivel
+ * de prioridad si fueron penalizados anteriormente*/
 void balance_queues(void)
 {
 	struct schedproc *rmp;
@@ -357,10 +371,11 @@ void balance_queues(void)
 
 	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
 		if (rmp->flags & IN_USE) {
-			if (rmp->priority > rmp->max_priority) {
+			if (rmp->priority > rmp->max_priority && rmp->full_quantums==0) {
 				rmp->priority -= 1; /* increase priority */
 				schedule_process_local(rmp);
 			}
+			rmp->full_quantums=0;
 		}
 	}
 
